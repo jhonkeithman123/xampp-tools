@@ -1,12 +1,30 @@
 #!/bin/bash
 
 action="$1"
-service1="$2"
-service2="$3"
+shift || true
 
 function usage() {
   echo "Usage: xampp {start|stop|restart|status} {all|apache|mysql|proftpd} [apache|mysql|proftpd](optional)"
 }
+
+# Wrapper (if netstat is missing and ss exists)
+if ! command -v netstat >/dev/null 2>&1; then
+  if command -v ss >/dev/null 2>&1; then
+    TMPDIR="${mktemp -d}"
+    cat > "$TMPDIR/netstat" <<'EOF'
+#!/bin/sh
+# netstat wrapper using ss to avoid "command not found" warnings.
+# This attempts to mimic common netstat usage used by scripts (e.g. -tulpn).
+# We ignore the header differences; presence of a command is what matters.
+ss -nltup "$@" 2>/dev/null
+EOF
+    chmod +x "$TMPDIR/netstat"
+    export PATH="$TMPDIR:$PATH"
+    trap 'rm -rf "$TMPDIR"' EXIT
+  else
+    echo "Warning: netstat not found and ss not available; XAMPP may warn."
+  fi
+fi
 
 function handle_service() {
   local action="$1"
@@ -71,10 +89,18 @@ function handle_service() {
   esac
 }
 
-#* Will execute first
-handle_service "$action" "$service1"
-
-#* Then execute the second service if provided
-if [[ -n "$service2" && "$action" != "start" && "$action" != "stop" ]]; then
-  handle_service "$action" "$service2"
+# If no action provided
+if [[ -z "$action" ]]; then
+  usage
 fi
+
+# collect services (default to all)
+services=("$@")
+if [[ "${#services[@]}" -eq 0 ]]; then
+  service={all}
+fi
+
+# Run the action for each requested services
+for svc in "${services[@]}"; do
+  handle_service "$action" "$svc"
+done
