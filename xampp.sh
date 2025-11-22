@@ -10,7 +10,7 @@ function usage() {
 # Wrapper (if netstat is missing and ss exists)
 if ! command -v netstat >/dev/null 2>&1; then
   if command -v ss >/dev/null 2>&1; then
-    TMPDIR="${mktemp -d}"
+    TMPDIR="$(mktemp -d)"
     cat > "$TMPDIR/netstat" <<'EOF'
 #!/bin/sh
 # netstat wrapper using ss to avoid "command not found" warnings.
@@ -97,7 +97,7 @@ fi
 # collect services (default to all)
 services=("$@")
 if [[ "${#services[@]}" -eq 0 ]]; then
-  service={all}
+  service=("all")
 fi
 
 # Run the action for each requested services
